@@ -12,7 +12,7 @@
         - [Using GovCloud Endpoints](https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/using-govcloud-endpoints.html)
         - [Beijing Region Endpoints](https://docs.amazonaws.cn/en_us/aws/latest/userguide/endpoints-Beijing.html)
         - [Ningxia Region Endpoints](https://docs.amazonaws.cn/en_us/aws/latest/userguide/endpoints-Ningxia.html)
-2. Upload [notification-service.yml](), [cloudwatch.yml](cloudwatch.yml), and [codestar.yml](codestar.yml) to the S3 bucket created in Step 1
+2. Upload [notification-service.yml](notification-service.yml), [cloudwatch.yml](cloudwatch.yml), and [codestar.yml](codestar.yml) to the S3 bucket created in Step 1
 3. Copy the Object URL for [notification-service.yml](notification-service.yml)
 4. Create a CloudFormation stack from the Object URL copied in Step 3, specifying the following parameters:
     - S3 bucket containing CloudFormation templates
