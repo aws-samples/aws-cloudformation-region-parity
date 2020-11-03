@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Send notifications on repository updates
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Parameters:
+        - pBucket
+        - pEmail
+    ParameterLabels:
+      pBucket:
+        default: S3 bucket containing CloudFormation templates
+      pEmail:
+        default: Email address to notify
+
+Parameters:
+  pBucket:
+    Type: String
+    Description: >-
+      If using AWS GovCloud (US) or AWS China, you must create your 
+      CloudFormation stack in the same Region as this S3 bucket
+    AllowedPattern: ^[0-9a-z]+([0-9a-z-.]*[0-9a-z])*$
+    MinLength: 3
+    MaxLength: 63
+  pEmail:
+    Type: String
+    AllowedPattern: ^(.)+@(.)+.(.)+$
+
+Conditions:
+  cRegionSpecificS3Endpoint: !Or
+    - !Equals [!Ref AWS::Partition, aws-us-gov]
+    - !Equals [!Ref AWS::Partition, aws-cn]
+  # the maximum number of conditions for an !Or operator is 10, so make 
+  # separate conditions for each partition, then condition them
+  cRegionDoesNotSupportCodeStar: !Or
+    - !Condition cStandardRegionDoesNotSupportCodeStar
+    - !Condition cGovCloudRegionDoesNotSupportCodeStar
+    - !Condition cChinaRegionDoesNotSupportCodeStar
+  # NOTE: Update this list as CodeStar availability and Region availability changes
+  cStandardRegionDoesNotSupportCodeStar: !Or
+    - !Equals [!Ref AWS::Region, af-south-1]
+    - !Equals [!Ref AWS::Region, ap-east-1]
+    - !Equals [!Ref AWS::Region, ap-south-1]
+    - !Equals [!Ref AWS::Region, ap-northeast-3]
+    - !Equals [!Ref AWS::Region, eu-south-1]
+    - !Equals [!Ref AWS::Region, eu-west-3]
+    - !Equals [!Ref AWS::Region, me-south-1]
+    - !Equals [!Ref AWS::Region, sa-east-1]
+  cGovCloudRegionDoesNotSupportCodeStar: !Or
+    - !Equals [!Ref AWS::Region, us-gov-west-1]
+    - !Equals [!Ref AWS::Region, us-gov-east-1]
+  cChinaRegionDoesNotSupportCodeStar: !Or
+    - !Equals [!Ref AWS::Region, cn-northwest-1]
+    - !Equals [!Ref AWS::Region, cn-north-1]
+
+Resources:
+  rRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Ref AWS::StackName
+  rTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Ref pEmail
+          Protocol: email
+  rTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Id: !Ref AWS::StackName
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: !If
+                - cRegionDoesNotSupportCodeStar
+                - events.amazonaws.com
+                - codestar-notifications.amazonaws.com
+            Action:
+              - sns:Publish
+            Resource: !Ref rTopic
+      Topics:
+        - !Ref rTopic
+  rNotificationStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: 
+        !Sub
+        # in standard Regions, Amazon S3 domain is s3.amazonaws.com
+        # in AWS GovCloud (US) Regions, Amazon S3 domain is s3.{AWS::Region}.amazonaws.com
+        # in AWS China Regions, Amazon S3 domain is s3.{AWS::Region}.amazonaws.com.cn
+        - https://${pBucket}.s3${region_specific}.${AWS::URLSuffix}/${notification_service}.yml
+        - notification_service: !If [ cRegionDoesNotSupportCodeStar, cloudwatch, codestar ]
+          region_specific: !If [ cRegionSpecificS3Endpoint, !Sub ".${AWS::Region}", "" ]
+      Parameters:
+        pSnsTopicArn: !Ref rTopic
+        pRepoArn: !GetAtt rRepo.Arn

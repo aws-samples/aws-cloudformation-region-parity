@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Use CodeStar to send notifications on repository updates
+
+Parameters:
+  pSnsTopicArn:
+    Type: String
+  pRepoArn:
+    Type: String
+
+Resources:
+  rCodeCommitRepoNotification:
+    Type: AWS::CodeStarNotifications::NotificationRule
+    Properties:
+      Name: !Ref AWS::StackName
+      DetailType: FULL
+      Resource: !Ref pRepoArn
+      EventTypeIds:
+        - codecommit-repository-branches-and-tags-updated
+      Targets:
+        - TargetType: SNS
+          TargetAddress: !Ref pSnsTopicArn

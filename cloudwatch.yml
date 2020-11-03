@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Use CloudWatch events to send notifications on repository updates
+
+Parameters:
+  pSnsTopicArn:
+    Type: String
+  pRepoArn:
+    Type: String
+
+Resources:
+  rCodeCommitRepoNotification:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Ref pRepoArn
+        detail:
+          event: 
+            - referenceUpdated
+      State: ENABLED
+      Targets:
+        - Arn: !Ref pSnsTopicArn
+          Id: !Ref AWS::StackName
